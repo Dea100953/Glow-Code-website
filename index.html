@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HerVoice — From silence to power</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="index.html" aria-label="HerVoice home">
+        <!-- Inline fallback if SVG file not loaded -->
+        <img src="assets/logo.svg" alt="HerVoice logo" />
+      </a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="index.html">Home</a>
+        <a href="news.html">News</a>
+        <a href="chat.html">Chat</a>
+        <a href="report.html">Report</a>
+        <a href="resources.html">Resources</a>
+        <a href="privacy.html">Privacy</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-text">
+          <h1>HerVoice</h1>
+          <p class="tagline">From silence to power — Reporting and raising awareness about women's rights globally.</p>
+          <p class="lead">Real stories. Verified sources. Support & resources. Share anonymously. Take action.</p>
+          <div class="hero-ctas">
+            <a class="btn primary" href="report.html">Report an incident</a>
+            <a class="btn" href="news.html">Read latest news</a>
+            <a class="btn outline" href="chat.html">Join chat</a>
+          </div>
+        </div>
+        <div class="hero-media" aria-hidden="false">
+          <!-- Featured image placeholder -->
+          <img id="heroImage" src="assets/featured-sample.jpg" alt="Featured story image" />
+        </div>
+      </div>
+    </section>
+
+    <section class="quickbox container">
+      <div class="quickbox-grid">
+        <div class="emergency">
+          <h2>Emergency numbers</h2>
+          <p>Select country to see emergency & support contacts.</p>
+          <label for="countrySelect" class="sr-only">Choose country</label>
+          <select id="countrySelect" aria-label="Select country for emergency numbers"></select>
+          <div id="contactList" class="contact-list" aria-live="polite"></div>
+        </div>
+
+        <div class="featured">
+          <h2>Featured story</h2>
+          <article id="featuredStory" class="card">
+            <h3 id="featuredTitle">Women's rights under pressure in Afghanistan</h3>
+            <p id="featuredExcerpt">Girls and women face severe restrictions on education, employment, and freedoms in many regions—read the latest verified reports.</p>
+            <a id="featuredLink" class="btn small" href="news.html">Read more</a>
+          </article>
+        </div>
+
+        <div class="ways">
+          <h2>Ways to help</h2>
+          <ul>
+            <li><a href="resources.html#donate">Donate to vetted NGOs</a></li>
+            <li><a href="resources.html#petition">Sign or create petitions</a></li>
+            <li><a href="report.html">Report an incident</a></li>
+            <li><a href="chat.html">Join the community chat</a></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="news container">
+      <h2>Latest News</h2>
+      <div class="controls">
+        <input id="newsSearch" type="search" placeholder="Search news by keyword, country or tag..." aria-label="Search news" />
+      </div>
+      <div id="newsList" class="news-grid" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <img src="assets/logo.svg" alt="HerVoice logo small" class="logo-small" />
+        <p>HerVoice — From silence to power</p>
+      </div>
+      <div>
+        <h4>Pages</h4>
+        <a href="news.html">News</a><br />
+        <a href="chat.html">Chat</a><br />
+        <a href="report.html">Report</a><br />
+        <a href="resources.html">Resources</a>
+      </div>
+      <div>
+        <h4>Contact</h4>
+        <p>Contact: <a href="mailto:contact@hervoice.example">contact@hervoice.example</a></p>
+      </div>
+    </div>
+    <div class="copyright">© <span id="year"></span> HerVoice — All rights reserved</div>
+  </footer>
+
+  <div id="modal" class="modal" aria-hidden="true">
+    <div class="modal-content" role="dialog" aria-modal="true">
+      <button id="modalClose" class="modal-close" aria-label="Close">✕</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="js/main.js" defer></script>
+</body>
+</html>

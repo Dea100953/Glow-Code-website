@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HerVoice — News</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="index.html"><img src="assets/logo.svg" alt="HerVoice logo" /></a>
+      <nav class="main-nav"><a href="index.html">Home</a><a href="news.html">News</a><a href="chat.html">Chat</a><a href="report.html">Report</a></nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1>News — Women's rights around the world</h1>
+    <p class="lead">Latest curated reports and AI-summaries (prototype). Each story links to original source.</p>
+    <input id="newsSearch" type="search" placeholder="Search news by keyword, country or tag..." />
+    <div id="newsList" class="news-grid" style="margin-top:1rem"></div>
+  </main>
+
+  <footer class="site-footer container"><p style="text-align:center">© HerVoice</p></footer>
+
+  <div id="modal" class="modal" aria-hidden="true"><div class="modal-content" role="dialog"><button id="modalClose" class="modal-close">✕</button><div id="modalBody"></div></div></div>
+
+  <script src="js/main.js" defer></script>
+</body>
+</html>
