@@ -1,15 +1,21 @@
 // main.js - Frontend-only prototype logic for HerVoice (with optional Supabase integration).
-// Features:
-// - Render emergency numbers (sample dataset)
-// - Render news (sample array), search & open modal
-// - Anonymous chat: uses Supabase if SUPABASE_URL + SUPABASE_KEY are provided via window config, otherwise falls back to localStorage
-// - Report form saving to localStorage (prototype) and optional Supabase insert
-// - Placeholders for integrating OpenAI news ingestion
+// Added features: localStorage-only auto-expire for chat and reports, improved "Report" flow that saves reports to localStorage.
 
 (async function(){
   document.addEventListener('DOMContentLoaded', init);
 
   async function init(){
+    // Retention policy (days)
+    const CHAT_RETENTION_DAYS = 90; // chat messages older than this will be removed
+    const REPORT_RETENTION_DAYS = 365; // reports older than this will be removed
+
+    // Keys in localStorage
+    const CHAT_KEY = 'hervoice_chat_messages_v1';
+    const REPORT_KEY = 'hervoice_reports_v1';
+
+    // purge old data on startup
+    purgeOldData();
+
     document.getElementById('year').textContent = new Date().getFullYear();
 
     // SAMPLE emergency dataset (small sample)
@@ -123,7 +129,7 @@
     searchInput && searchInput.addEventListener('input', (e)=>{ const q = e.target.value.toLowerCase().trim(); if(!q) renderNews(sampleNews); else { const filtered = sampleNews.filter(n => (n.title + ' ' + n.excerpt + ' ' + n.country + ' ' + n.tags.join(' ')).toLowerCase().includes(q)); renderNews(filtered); } });
     renderNews(sampleNews);
 
-    // --- Chat: SUPABASE optional integration; otherwise localStorage fallback ---
+    // --- Chat: localStorage with optional SUPABASE integration (no backend required) ---
     const SUPABASE_URL = window.SUPABASE_URL || null;
     const SUPABASE_KEY = window.SUPABASE_KEY || null;
     let supabase = null;
@@ -137,13 +143,33 @@
       }catch(err){ console.warn('Failed to load Supabase client, falling back to localStorage', err); supabase = null; }
     }
 
-    const CHAT_KEY = 'hervoice_chat_messages_v1';
-
     if (location.pathname.endsWith('chat.html') || location.pathname.endsWith('/chat')) initChatUI();
     if (location.pathname.endsWith('report.html') || location.pathname.endsWith('/report')) initReportForm();
 
     // loadScript helper
     function loadScript(src){ return new Promise((resolve,reject)=>{ const s=document.createElement('script'); s.src=src; s.onload=()=>resolve(); s.onerror=(e)=>reject(e); document.head.appendChild(s); }); }
+
+    // Purge old data according to retention policy
+    function purgeOldData(){
+      try{
+        // Purge chat
+        const rawChat = localStorage.getItem(CHAT_KEY);
+        if(rawChat){
+          const msgs = JSON.parse(rawChat);
+          const cutoff = Date.now() - CHAT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+          const kept = msgs.filter(m => { const t = new Date(m.created_at || m.time || 0).getTime(); return !isNaN(t) && t >= cutoff; });
+          if(kept.length !== msgs.length) localStorage.setItem(CHAT_KEY, JSON.stringify(kept));
+        }
+        // Purge reports
+        const rawReports = localStorage.getItem(REPORT_KEY);
+        if(rawReports){
+          const rpts = JSON.parse(rawReports);
+          const cutoffR = Date.now() - REPORT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+          const keptR = rpts.filter(r => { const t = new Date(r.createdAt || r.created_at || 0).getTime(); return !isNaN(t) && t >= cutoffR; });
+          if(keptR.length !== rpts.length) localStorage.setItem(REPORT_KEY, JSON.stringify(keptR));
+        }
+      }catch(err){ console.warn('purgeOldData failed', err); }
+    }
 
     async function initChatUI(){
       const main = document.querySelector('main') || document.body;
@@ -185,6 +211,7 @@
 
       // localStorage helpers
       function saveLocal(entry){ const raw = localStorage.getItem(CHAT_KEY); const list = raw?JSON.parse(raw):[]; list.push(entry); localStorage.setItem(CHAT_KEY, JSON.stringify(list)); }
+
       function renderLocalMessages(){ const raw = localStorage.getItem(CHAT_KEY); const list = raw?JSON.parse(raw):[]; messagesEl.innerHTML=''; list.slice(-500).forEach(m=>{ const el = document.createElement('div'); el.style.padding='0.6rem'; el.style.borderBottom='1px solid #f1e7ee'; el.innerHTML = `<div style="display:flex;justify-content:space-between"><strong>${escapeHtml(m.name||'Anonymous')}</strong><small style="color:var(--muted)">${new Date(m.created_at||m.time).toLocaleString()}</small></div><div style="margin-top:0.3rem">${escapeHtml(m.text)}</div><div style="margin-top:0.4rem"><button class="btn small report-btn" data-id="${m.id}">Report</button></div>`; messagesEl.appendChild(el); }); attachReportHandlers(); messagesEl.scrollTop = messagesEl.scrollHeight; }
 
       // Supabase helpers
@@ -193,8 +220,17 @@
       function subscribeToMessages(){ try{ const channel = supabase.channel('public:messages'); channel.on('postgres_changes', {event:'INSERT',schema:'public',table:'messages'}, payload=>{ const m = payload.new; const el = document.createElement('div'); el.style.padding='0.6rem'; el.style.borderBottom='1px solid #f1e7ee'; el.innerHTML = `<div style="display:flex;justify-content:space-between"><strong>${escapeHtml(m.name||'Anonymous')}</strong><small style="color:var(--muted)">${new Date(m.created_at).toLocaleString()}</small></div><div style="margin-top:0.3rem">${escapeHtml(m.text)}</div><div style="margin-top:0.4rem"><button class="btn small report-btn" data-id="${m.id}">Report</button></div>`; messagesEl.appendChild(el); messagesEl.scrollTop = messagesEl.scrollHeight; attachReportHandlers(); }).subscribe(); }catch(err){ console.warn('subscribe failed', err); }
       }
 
-      function attachReportHandlers(){ document.querySelectorAll('.report-btn').forEach(b=> b.addEventListener('click', e=>{ const id = e.currentTarget.getAttribute('data-id'); // simple UI for prototype
-          alert('Message reported. Moderators will review it. (Prototype)'); })) }
+      function attachReportHandlers(){ document.querySelectorAll('.report-btn').forEach(b=> b.addEventListener('click', async e=>{ const id = e.currentTarget.getAttribute('data-id'); // improved report flow: ask for reason and save locally
+            const reason = prompt('Why are you reporting this message? (optional)');
+            if(reason === null) return; // user cancelled
+            // find message text to include
+            const raw = localStorage.getItem(CHAT_KEY); const list = raw?JSON.parse(raw):[]; const msg = list.find(m=>m.id === id) || {};
+            const report = { id: Date.now().toString(36), type: 'message_report', messageId: id, messageText: msg.text || '', reason: reason || '', createdAt: new Date().toISOString() };
+            saveReportLocal(report);
+            // mark message as reported in local copy
+            if(msg){ msg.reported = true; localStorage.setItem(CHAT_KEY, JSON.stringify(list)); }
+            // update UI
+            e.currentTarget.textContent = 'Reported'; e.currentTarget.disabled = true; alert('Message reported — moderators will review (local prototype).'); })) }
     }
 
     // --- Report form ---
@@ -218,21 +254,22 @@
       `;
       const form = document.getElementById('reportForm');
       const status = document.getElementById('reportStatus');
-      const REPORT_KEY = 'hervoice_reports_v1';
 
       form.addEventListener('submit', async e=>{
         e.preventDefault();
         const fd = new FormData(form);
         const obj = { id: Date.now().toString(36), country: fd.get('country'), date: fd.get('date') || new Date().toISOString().split('T')[0], anon: fd.get('anon') === 'on' || fd.get('anon') === 'true', desc: fd.get('desc'), createdAt: new Date().toISOString() };
-        // if supabase is configured, try to insert there
-        if(supabase){
-          try{ await supabase.from('reports').insert([{country:obj.country,date:obj.date,anon:obj.anon,desc:obj.desc}]); status.innerHTML = '<p style="color:green">Report submitted to backend.</p>'; form.reset(); return; }catch(err){ console.error('report insert failed', err); }
-        }
-        const raw = localStorage.getItem(REPORT_KEY); const list = raw?JSON.parse(raw):[]; list.push(obj); localStorage.setItem(REPORT_KEY, JSON.stringify(list)); status.innerHTML = '<p style="color:green">Report saved locally (prototype). Admins can integrate backend to receive reports securely.</p>'; form.reset();
+        // save locally (prototype)
+        saveReportLocal(obj);
+        status.innerHTML = '<p style="color:green">Report saved locally (prototype). Admins can integrate backend to receive reports securely.</p>';
+        form.reset();
       });
 
       document.getElementById('downloadReport').addEventListener('click', ()=>{ const raw = localStorage.getItem(REPORT_KEY) || '[]'; const blob = new Blob([raw], {type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download='hervoice_reports.json'; a.click(); URL.revokeObjectURL(url); });
     }
+
+    // save report locally helper
+    function saveReportLocal(report){ try{ const raw = localStorage.getItem(REPORT_KEY); const list = raw?JSON.parse(raw):[]; list.push(report); localStorage.setItem(REPORT_KEY, JSON.stringify(list)); }catch(err){ console.error('saveReportLocal failed', err); } }
 
     // accessibility: close modal on Esc
     document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape'){ const modal = document.getElementById('modal'); if(modal && modal.getAttribute('aria-hidden') === 'false'){ modal.setAttribute('aria-hidden','true'); modal.style.display='none'; } } });
@@ -241,5 +278,8 @@
     window.HerVoice = window.HerVoice || {};
     window.HerVoice._sampleNews = sampleNews;
     window.HerVoice._emergencyData = emergencyData;
+
+    // run a purge periodically while the page is open (every 6 hours)
+    setInterval(purgeOldData, 1000 * 60 * 60 * 6);
   }
 })();
